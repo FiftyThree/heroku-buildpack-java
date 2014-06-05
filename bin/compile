@@ -15,89 +15,94 @@ ENV_DIR=$3
 
 LOGGER_FLAGS=""
 
+# this is the main heroku tool that installs the JVM
 curl --silent --location http://heroku-jvm-common.s3.amazonaws.com/jvm-buildpack-common.tar.gz | tar xz
 . bin/util
 . bin/java
 
 export_env_dir $ENV_DIR
 
-KEEP_M2_CACHE="true"
+# No need to install M2, we just want the JVM
+# KEEP_M2_CACHE="true"
 
-if [ ! -d $CACHE_DIR ]; then
-  KEEP_M2_CACHE="false"
-elif [ -f $CACHE_DIR/removeM2Cache ]; then
-  KEEP_M2_CACHE="false"
-fi
+# if [ ! -d $CACHE_DIR ]; then
+#   KEEP_M2_CACHE="false"
+# elif [ -f $CACHE_DIR/removeM2Cache ]; then
+#   KEEP_M2_CACHE="false"
+# fi
 
-if [ "true" == $KEEP_M2_CACHE ]; then
-  logger -p user.notice -t "slugc[$$]" "language_pack_java retain_m2_repo"
-fi
+# if [ "true" == $KEEP_M2_CACHE ]; then
+#   logger -p user.notice -t "slugc[$$]" "language_pack_java retain_m2_repo"
+# fi
 
-#create the cache dir if it doesn't exist
-mkdir -p $CACHE_DIR
+# #create the cache dir if it doesn't exist
+# mkdir -p $CACHE_DIR
 
-# create default system.properties 
+# create default system.properties
 if [ ! -f ${BUILD_DIR}/system.properties ]; then
+  # For presser ICC dependencies we want to pin this java version to 1.6_27
   echo "java.runtime.version=1.6" > ${BUILD_DIR}/system.properties
 fi
 
-# install JDK 
+# install JDK
 javaVersion=$(detect_java_version ${BUILD_DIR})
 echo -n "-----> Installing OpenJDK ${javaVersion}..."
 install_java ${BUILD_DIR} ${javaVersion}
 jdk_overlay ${BUILD_DIR}
 echo " done"
 
-# change to cache dir to install maven
-cd $CACHE_DIR
+# No need to install M2, skip to setting env vars
+# # change to cache dir to install maven
+# cd $CACHE_DIR
 
-# install maven with base repository
-MAVEN_URL="http://s3.amazonaws.com/heroku-jvm-langpack-java/maven.tar.gz"
+# # install maven with base repository
+# MAVEN_URL="http://s3.amazonaws.com/heroku-jvm-langpack-java/maven.tar.gz"
 
-if [ ! -d .maven ]; then
-  echo -n "-----> Installing Maven 3.0.3..."
-  curl --silent --max-time 60 --location $MAVEN_URL | tar xz
-  chmod +x .maven/bin/mvn
-  echo " done"
-fi
+# if [ ! -d .maven ]; then
+#   echo -n "-----> Installing Maven 3.0.3..."
+#   curl --silent --max-time 60 --location $MAVEN_URL | tar xz
+#   chmod +x .maven/bin/mvn
+#   echo " done"
+# fi
 
-MAVEN_SETTINGS_URL="http://s3.amazonaws.com/heroku-jvm-langpack-java/settings.xml"
+# MAVEN_SETTINGS_URL="http://s3.amazonaws.com/heroku-jvm-langpack-java/settings.xml"
 
-echo -n "-----> Installing settings.xml..."
-if [ -f .m2/settings.xml ]; then
-  rm .m2/settings.xml 
-fi
-curl --silent --max-time 10 --location $MAVEN_SETTINGS_URL --output .m2/settings.xml
-echo " done"
+# echo -n "-----> Installing settings.xml..."
+# if [ -f .m2/settings.xml ]; then
+#   rm .m2/settings.xml
+# fi
+# curl --silent --max-time 10 --location $MAVEN_SETTINGS_URL --output .m2/settings.xml
+# echo " done"
 
-# change to build dir to run maven
-cd $BUILD_DIR
+# # change to build dir to run maven
+# cd $BUILD_DIR
 
-export MAVEN_OPTS="-Xmx1024m"
+# export MAVEN_OPTS="-Xmx1024m"
 
-# build app
-BUILDCMD="$CACHE_DIR/.maven/bin/mvn -B -Duser.home=$BUILD_DIR -Dmaven.repo.local=$CACHE_DIR/.m2/repository -s $CACHE_DIR/.m2/settings.xml -DskipTests=true clean install"
-echo "-----> executing $BUILDCMD"
+# # build app
+# BUILDCMD="$CACHE_DIR/.maven/bin/mvn -B -Duser.home=$BUILD_DIR -Dmaven.repo.local=$CACHE_DIR/.m2/repository -s $CACHE_DIR/.m2/settings.xml -DskipTests=true clean install"
+# echo "-----> executing $BUILDCMD"
 
-$BUILDCMD 2>&1 | sed -u 's/^/       /'
+# $BUILDCMD 2>&1 | sed -u 's/^/       /'
 
-if [ "${PIPESTATUS[*]}" != "0 0" ]; then
-  echo " !     Failed to build app with Maven"
-  exit 1
-fi
+# if [ "${PIPESTATUS[*]}" != "0 0" ]; then
+#   echo " !     Failed to build app with Maven"
+#   exit 1
+# fi
 
-# finalize cache
-if [ "false" == $KEEP_M2_CACHE ]; then
-  touch $CACHE_DIR/removeM2Cache
-fi
+# # finalize cache
+# if [ "false" == $KEEP_M2_CACHE ]; then
+#   touch $CACHE_DIR/removeM2Cache
+# fi
 
-#copy .m2 and .maven if needed
-if [ "true" == $KEEP_M2_CACHE ]; then
-  for DIR in ".m2" ".maven" ; do
-    cp -r $CACHE_DIR/$DIR $DIR
-  done
-fi
+# #copy .m2 and .maven if needed
+# if [ "true" == $KEEP_M2_CACHE ]; then
+#   for DIR in ".m2" ".maven" ; do
+#     cp -r $CACHE_DIR/$DIR $DIR
+#   done
+# fi
 
+# export PATH and JAVA_TOOL_OPTIONS
 PROFILE_PATH="$BUILD_DIR/.profile.d/java.sh"
 mkdir -p $(dirname $PROFILE_PATH)
 echo 'export PATH="/app/.jdk/bin:$PATH"' >> $PROFILE_PATH

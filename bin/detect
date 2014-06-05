@@ -1,8 +1,11 @@
-#!/usr/bin/env bash
-# bin/use <build-dir>
+#! /bin/bash
 
-if [ -f $1/pom.xml ]; then
-   echo "Java" && exit 0
-else
-  echo "no" && exit 1
-fi
+# this buildpack can always be used
+exit 0
+
+#  This is the original code, but we don't build any Java code, just the JVM
+# if [ -f $1/pom.xml ]; then
+#    echo "Java" && exit 0
+# else
+#   echo "no" && exit 1
+# fi
